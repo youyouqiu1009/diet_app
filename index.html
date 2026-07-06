@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ダイエット記録</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>ダイエット記録</h1>
+  <button id="signout-button" class="hidden">ログアウト</button>
+</header>
+
+<main>
+
+  <section id="login-card" class="card">
+    <h2>ログイン</h2>
+    <form id="login-form">
+      <label>
+        メールアドレス
+        <input type="email" id="login-email" required placeholder="you@example.com">
+      </label>
+      <button type="submit">ログインリンクを送る</button>
+    </form>
+    <p id="login-message"></p>
+  </section>
+
+  <div id="app-content" class="hidden">
+
+  <section class="card">
+    <h2>今日の記録</h2>
+    <form id="record-form">
+      <label>
+        日付
+        <input type="date" id="date" required>
+      </label>
+      <label>
+        体重 (kg)
+        <input type="number" id="weight" step="0.1" placeholder="例: 65.2">
+      </label>
+      <label>
+        メモ
+        <textarea id="memo" rows="3" placeholder="食事内容など自由に"></textarea>
+      </label>
+      <button type="submit">保存する</button>
+    </form>
+    <p id="status-message"></p>
+  </section>
+
+  <section class="card">
+    <h2>体重の推移</h2>
+    <canvas id="weight-chart"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>記録一覧</h2>
+    <ul id="record-list"></ul>
+  </section>
+
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="app.js"></script>
+</body>
+</html>

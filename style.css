@@ -1,0 +1,122 @@
+* {
+  box-sizing: border-box;
+}
+
+.hidden {
+  display: none !important;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  background: #f4f5f7;
+  color: #222;
+  margin: 0;
+  padding: 0 0 40px;
+}
+
+header {
+  background: #4a90a4;
+  color: white;
+  padding: 16px;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+#signout-button {
+  margin-top: 8px;
+  width: auto;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+
+form label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+form input,
+form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  background: #4a90a4;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:active {
+  background: #3a7686;
+}
+
+#status-message {
+  min-height: 1.2em;
+  font-size: 0.9rem;
+  color: #4a90a4;
+}
+
+#record-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#record-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}
+
+#record-list li:last-child {
+  border-bottom: none;
+}
+
+.record-date {
+  font-weight: bold;
+}
+
+.record-weight {
+  color: #4a90a4;
+}
+
+.record-memo {
+  display: block;
+  color: #666;
+  margin-top: 2px;
+}
