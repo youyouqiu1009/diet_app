@@ -1,3 +1,14 @@
+:root {
+  --accent: #f28c8f;
+  --accent-dark: #d96a6e;
+  --accent-soft: #fdeded;
+  --danger: #c9506e;
+  --danger-bg: #fdecec;
+  --text-dark: #2c2c3a;
+  --text-muted: #7a7a8c;
+  --card-bg: #ffffff;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -7,15 +18,15 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
-  background: #f4f5f7;
-  color: #222;
+  font-family: "M PLUS Rounded 1c", system-ui, "Hiragino Sans", sans-serif;
+  background: #faf7f5;
+  color: var(--text-dark);
   margin: 0;
   padding: 0 0 40px;
 }
 
 header {
-  background: #4a90a4;
+  background: var(--accent);
   color: white;
   padding: 16px;
   text-align: center;
@@ -41,7 +52,7 @@ main {
 }
 
 .card {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
@@ -60,21 +71,35 @@ form label {
 }
 
 form input,
+form select,
 form textarea {
   display: block;
   width: 100%;
   margin-top: 4px;
   padding: 8px;
   font-size: 1rem;
+  font-family: inherit;
   border: 1px solid #ccc;
   border-radius: 8px;
+}
+
+details {
+  margin-bottom: 12px;
+}
+
+details summary {
+  font-size: 0.9rem;
+  color: var(--accent-dark);
+  cursor: pointer;
+  margin-bottom: 8px;
 }
 
 button {
   width: 100%;
   padding: 12px;
   font-size: 1rem;
-  background: #4a90a4;
+  font-family: inherit;
+  background: var(--accent);
   color: white;
   border: none;
   border-radius: 8px;
@@ -82,29 +107,38 @@ button {
 }
 
 button:active {
-  background: #3a7686;
+  background: var(--accent-dark);
 }
 
-#status-message {
+.message {
   min-height: 1.2em;
   font-size: 0.9rem;
-  color: #4a90a4;
+  color: var(--accent-dark);
 }
 
-#record-list {
+.record-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-#record-list li {
+.record-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 10px 0;
   border-bottom: 1px solid #eee;
   font-size: 0.9rem;
 }
 
-#record-list li:last-child {
+.record-list li:last-child {
   border-bottom: none;
+}
+
+.record-content {
+  flex: 1 1 auto;
 }
 
 .record-date {
@@ -112,11 +146,75 @@ button:active {
 }
 
 .record-weight {
-  color: #4a90a4;
+  color: var(--accent-dark);
 }
 
 .record-memo {
   display: block;
-  color: #666;
+  color: var(--text-muted);
   margin-top: 2px;
+}
+
+.record-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.small-btn {
+  width: auto;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  border-radius: 8px;
+}
+
+.small-btn.delete-btn {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.tab-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tab-btn {
+  flex: 1;
+  background: white;
+  color: var(--accent-dark);
+  border: 1px solid var(--accent);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+.range-buttons {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.range-btn {
+  flex: 1;
+  background: white;
+  color: var(--accent-dark);
+  border: 1px solid var(--accent);
+  padding: 6px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.range-btn.active {
+  background: var(--accent);
+  color: white;
 }

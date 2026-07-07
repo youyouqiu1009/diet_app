@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ダイエット記録</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,7 +23,7 @@
     <form id="login-form">
       <label>
         メールアドレス
-        <input type="email" id="login-email" required placeholder="you@example.com">
+        <input type="email" id="login-email" required>
       </label>
       <button type="submit">ログインリンクを送る</button>
     </form>
@@ -29,35 +32,122 @@
 
   <div id="app-content" class="hidden">
 
-  <section class="card">
-    <h2>今日の記録</h2>
-    <form id="record-form">
-      <label>
-        日付
-        <input type="date" id="date" required>
-      </label>
-      <label>
-        体重 (kg)
-        <input type="number" id="weight" step="0.1" placeholder="例: 65.2">
-      </label>
-      <label>
-        メモ
-        <textarea id="memo" rows="3" placeholder="食事内容など自由に"></textarea>
-      </label>
-      <button type="submit">保存する</button>
-    </form>
-    <p id="status-message"></p>
-  </section>
+    <div class="tab-nav">
+      <button type="button" class="tab-btn active" data-tab="calorie">カロリー</button>
+      <button type="button" class="tab-btn" data-tab="weight">体重</button>
+      <button type="button" class="tab-btn" data-tab="settings">設定</button>
+    </div>
 
-  <section class="card">
-    <h2>体重の推移</h2>
-    <canvas id="weight-chart"></canvas>
-  </section>
+    <div id="tab-calorie" class="tab-panel">
 
-  <section class="card">
-    <h2>記録一覧</h2>
-    <ul id="record-list"></ul>
-  </section>
+      <section class="card">
+        <h2>カロリー記録</h2>
+        <form id="calorie-form">
+          <label>
+            日時
+            <input type="datetime-local" id="calorie-datetime" required>
+          </label>
+          <label>
+            カロリー (kcal)
+            <input type="number" id="calorie-amount" step="1" required>
+          </label>
+          <label>
+            メモ
+            <input type="text" id="calorie-memo">
+          </label>
+          <button type="submit">記録する</button>
+        </form>
+        <p id="calorie-status-message" class="message"></p>
+      </section>
+
+      <section class="card">
+        <h2>今日の合計: <span id="calorie-today-total">0</span> kcal</h2>
+        <p>目標体重達成に必要な今日の収支（摂取−消費）: <strong id="goal-hint">-</strong></p>
+        <ul id="calorie-today-list" class="record-list"></ul>
+      </section>
+
+    </div>
+
+    <div id="tab-weight" class="tab-panel hidden">
+
+      <section class="card">
+        <h2>今日の記録</h2>
+        <form id="record-form">
+          <label>
+            日付
+            <input type="date" id="date" required>
+          </label>
+          <label>
+            体重 (kg)
+            <input type="number" id="weight" step="0.1">
+          </label>
+          <button type="submit">保存する</button>
+        </form>
+        <p id="status-message" class="message"></p>
+      </section>
+
+      <section class="card">
+        <h2>体重の推移</h2>
+        <div class="range-buttons">
+          <button type="button" class="range-btn" data-range="7">1週間</button>
+          <button type="button" class="range-btn" data-range="14">2週間</button>
+          <button type="button" class="range-btn active" data-range="30">1か月</button>
+          <button type="button" class="range-btn" data-range="90">3か月</button>
+        </div>
+        <canvas id="weight-chart"></canvas>
+      </section>
+
+      <section class="card">
+        <h2>記録一覧</h2>
+        <ul id="record-list" class="record-list"></ul>
+      </section>
+
+    </div>
+
+    <div id="tab-settings" class="tab-panel hidden">
+
+      <section class="card">
+        <h2>設定</h2>
+        <form id="settings-form">
+          <label>
+            性別
+            <select id="setting-gender">
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+            </select>
+          </label>
+          <label>
+            生年月日
+            <input type="date" id="setting-birth-date">
+          </label>
+          <label>
+            身長 (cm)
+            <input type="number" id="setting-height" step="0.1">
+          </label>
+          <label>
+            目標体重 (kg)
+            <input type="number" id="setting-goal-weight" step="0.1">
+          </label>
+          <label>
+            目標日
+            <input type="date" id="setting-goal-date">
+          </label>
+          <details>
+            <summary>詳細設定</summary>
+            <label>
+              kcal/kg 定数
+              <input type="number" id="setting-kcal-per-kg" step="1" value="7200">
+            </label>
+          </details>
+          <button type="submit">設定を保存</button>
+        </form>
+        <p id="settings-message" class="message"></p>
+        <p>現在の基礎代謝（自動計算）: <strong id="current-bmr">-</strong> kcal/日</p>
+        <p>基準体重: <strong id="current-baseline">-</strong></p>
+        <p>記録を始めた日からのマイナスカロリーの総量: <strong id="total-deficit">-</strong> kcal</p>
+      </section>
+
+    </div>
 
   </div>
 
@@ -66,5 +156,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="app.js"></script>
+<script src="calorie.js"></script>
+<script src="weight.js"></script>
 </body>
 </html>
