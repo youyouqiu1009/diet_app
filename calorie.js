@@ -3,14 +3,24 @@ const calorieDatetimeInput = document.getElementById("calorie-datetime");
 const calorieAmountInput = document.getElementById("calorie-amount");
 const calorieMemoInput = document.getElementById("calorie-memo");
 const calorieStatusMessage = document.getElementById("calorie-status-message");
+const calorieListDateLabel = document.getElementById("calorie-list-date-label");
 const calorieTodayTotal = document.getElementById("calorie-today-total");
 const calorieTodayList = document.getElementById("calorie-today-list");
+const calorieHistoryBtn = document.getElementById("calorie-history-btn");
 const goalHintDisplay = document.getElementById("goal-hint");
 
 function nowForDatetimeLocalInput() {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
+}
+
+function todayDateStr() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 calorieDatetimeInput.value = nowForDatetimeLocalInput();
@@ -34,15 +44,24 @@ calorieForm.addEventListener("submit", async (e) => {
   calorieStatusMessage.textContent = "記録しました！";
   calorieAmountInput.value = "";
   calorieMemoInput.value = "";
-  calorieDatetimeInput.value = nowForDatetimeLocalInput();
-  loadTodayCalories();
+  loadCaloriesForSelectedDate();
+  loadWeightData();
 });
 
-async function loadTodayCalories() {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
+calorieDatetimeInput.addEventListener("change", loadCaloriesForSelectedDate);
+
+function formatListDateLabel(dateStr) {
+  if (dateStr === todayDateStr()) return "今日";
+  const [, month, day] = dateStr.split("-");
+  return `${Number(month)}/${Number(day)}`;
+}
+
+async function loadCaloriesForSelectedDate() {
+  const dateStr = calorieDatetimeInput.value.slice(0, 10) || todayDateStr();
+  calorieListDateLabel.textContent = formatListDateLabel(dateStr);
+
+  const startOfDay = new Date(`${dateStr}T00:00:00`);
+  const endOfDay = new Date(`${dateStr}T23:59:59.999`);
 
   const { data, error } = await sb
     .from("calorie_records")
@@ -57,10 +76,44 @@ async function loadTodayCalories() {
     return;
   }
 
-  renderTodayCalories(data);
+  renderCalorieList(data);
 }
 
-function renderTodayCalories(records) {
+function buildCalorieListItem(record, { showDate, onDeleted, onError }) {
+  const li = document.createElement("li");
+  const recordedAt = new Date(record.recorded_at);
+  const time = recordedAt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  const dateLabel = showDate
+    ? `${recordedAt.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })} ${time}`
+    : time;
+  const sign = record.amount > 0 ? "+" : "";
+
+  li.innerHTML = `
+    <div class="record-content">
+      <span class="record-date">${dateLabel}</span>
+      <span class="record-weight"> — ${sign}${record.amount} kcal</span>
+      ${record.memo ? `<span class="record-memo">${record.memo}</span>` : ""}
+    </div>
+    <div class="record-actions">
+      <button type="button" class="small-btn delete-btn">削除</button>
+    </div>
+  `;
+
+  li.querySelector(".delete-btn").addEventListener("click", async () => {
+    const { error } = await sb.from("calorie_records").delete().eq("id", record.id);
+    if (error) {
+      console.error(error);
+      onError?.(error);
+      return;
+    }
+    onDeleted();
+    loadWeightData();
+  });
+
+  return li;
+}
+
+function renderCalorieList(records) {
   const total = records.reduce((sum, r) => sum + r.amount, 0);
   calorieTodayTotal.textContent = total;
 
@@ -72,45 +125,55 @@ function renderTodayCalories(records) {
   }
 
   for (const record of records) {
-    const li = document.createElement("li");
-    const time = new Date(record.recorded_at).toLocaleTimeString("ja-JP", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const sign = record.amount > 0 ? "+" : "";
-    li.innerHTML = `
-      <div class="record-content">
-        <span class="record-date">${time}</span>
-        <span class="record-weight"> — ${sign}${record.amount} kcal</span>
-        ${record.memo ? `<span class="record-memo">${record.memo}</span>` : ""}
-      </div>
-      <div class="record-actions">
-        <button type="button" class="small-btn delete-btn">削除</button>
-      </div>
-    `;
-
-    li.querySelector(".delete-btn").addEventListener("click", () => deleteCalorieRecord(record.id));
-
-    calorieTodayList.appendChild(li);
+    calorieTodayList.appendChild(
+      buildCalorieListItem(record, {
+        showDate: false,
+        onDeleted: loadCaloriesForSelectedDate,
+        onError: (error) => {
+          calorieStatusMessage.textContent = `削除に失敗しました: ${error.message}`;
+        },
+      })
+    );
   }
 }
 
-async function deleteCalorieRecord(id) {
-  const { error } = await sb.from("calorie_records").delete().eq("id", id);
+calorieHistoryBtn.addEventListener("click", openCalorieHistoryModal);
+
+async function openCalorieHistoryModal() {
+  openModal("カロリー記録一覧");
+
+  const { data, error } = await sb.from("calorie_records").select("*").order("recorded_at", { ascending: false });
 
   if (error) {
-    calorieStatusMessage.textContent = `削除に失敗しました: ${error.message}`;
+    modalList.innerHTML = `<li>読み込みに失敗しました: ${error.message}</li>`;
     console.error(error);
     return;
   }
 
-  loadTodayCalories();
+  modalList.innerHTML = "";
+
+  if (data.length === 0) {
+    modalList.innerHTML = "<li>まだ記録がありません</li>";
+    return;
+  }
+
+  for (const record of data) {
+    modalList.appendChild(
+      buildCalorieListItem(record, {
+        showDate: true,
+        onDeleted: () => {
+          openCalorieHistoryModal();
+          loadCaloriesForSelectedDate();
+        },
+      })
+    );
+  }
 }
 
 // weight.js が読み込み終わったタイミングで、目標体重達成に必要な今日の収支を計算する。
 // (userSettings / weightAsOf / bmrForDay は weight.js で定義されるグローバル)
 function updateGoalHint() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = todayDateStr();
 
   if (!userSettings?.goal_weight || !userSettings?.goal_date) {
     goalHintDisplay.textContent = "-";
@@ -140,5 +203,5 @@ function updateGoalHint() {
   goalHintDisplay.textContent = `${targetNet} kcal以下`;
 }
 
-window.addEventListener("app:authenticated", loadTodayCalories);
+window.addEventListener("app:authenticated", loadCaloriesForSelectedDate);
 window.addEventListener("app:weightDataLoaded", updateGoalHint);

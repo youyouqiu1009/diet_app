@@ -59,3 +59,25 @@ tabButtons.forEach((btn) => {
     });
   });
 });
+
+// 汎用モーダル（過去の記録一覧などのポップアップ表示に使う）
+const modalOverlay = document.getElementById("modal-overlay");
+const modalTitle = document.getElementById("modal-title");
+const modalList = document.getElementById("modal-list");
+const modalCloseBtn = document.getElementById("modal-close-btn");
+
+function openModal(title) {
+  modalTitle.textContent = title;
+  modalList.innerHTML = "<li>読み込み中...</li>";
+  modalOverlay.classList.add("open");
+}
+
+function closeModal() {
+  modalOverlay.classList.remove("open");
+  window.dispatchEvent(new CustomEvent("modal:closed"));
+}
+
+modalCloseBtn.addEventListener("click", closeModal);
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) closeModal();
+});

@@ -65,15 +65,15 @@ main {
   font-size: 1.05rem;
 }
 
-form label {
+label {
   display: block;
   margin-bottom: 12px;
   font-size: 0.9rem;
 }
 
-form input,
-form select,
-form textarea {
+input,
+select,
+textarea {
   display: block;
   width: 100%;
   margin-top: 4px;
@@ -86,7 +86,7 @@ form textarea {
   border-radius: 8px;
 }
 
-form select {
+select {
   -webkit-appearance: none;
   appearance: none;
   background-image:
@@ -130,6 +130,29 @@ button:active {
 .message {
   min-height: 1.2em;
   font-size: 0.9rem;
+  color: var(--accent-dark);
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+
+.progress-chart-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 16px auto 4px;
+}
+
+.progress-chart-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.3rem;
+  font-weight: bold;
   color: var(--accent-dark);
 }
 
@@ -190,6 +213,64 @@ button:active {
 .small-btn.delete-btn {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+#calorie-history-btn,
+#weight-history-btn {
+  margin-top: 12px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(30, 20, 25, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease;
+  z-index: 1000;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-box {
+  background: var(--card-bg);
+  border-radius: 20px;
+  padding: 18px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 78vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  transform: translateY(14px) scale(0.96);
+  transition: transform 0.2s ease;
+}
+
+.modal-overlay.open .modal-box {
+  transform: translateY(0) scale(1);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.modal-header .small-btn {
+  flex-shrink: 0;
 }
 
 .tab-nav {

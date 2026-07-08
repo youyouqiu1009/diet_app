@@ -28,6 +28,7 @@
       <button type="submit">ログインリンクを送る</button>
     </form>
     <p id="login-message"></p>
+    <p class="hint">※ iPhoneでメールアプリからリンクを開くときは、リンクを長押しして「Safariで開く」を選んでください（タップだけだとログインが反映されないことがあります）。</p>
   </section>
 
   <div id="app-content" class="hidden">
@@ -35,6 +36,7 @@
     <div class="tab-nav">
       <button type="button" class="tab-btn active" data-tab="calorie">カロリー</button>
       <button type="button" class="tab-btn" data-tab="weight">体重</button>
+      <button type="button" class="tab-btn" data-tab="progress">進捗</button>
       <button type="button" class="tab-btn" data-tab="settings">設定</button>
     </div>
 
@@ -61,9 +63,10 @@
       </section>
 
       <section class="card">
-        <h2>今日の合計: <span id="calorie-today-total">0</span> kcal</h2>
+        <h2><span id="calorie-list-date-label">今日</span>の合計: <span id="calorie-today-total">0</span> kcal</h2>
         <p>目標体重達成に必要な今日の収支（摂取−消費）: <strong id="goal-hint">-</strong></p>
         <ul id="calorie-today-list" class="record-list"></ul>
+        <button type="button" id="calorie-history-btn" class="small-btn">過去の記録をすべて見る</button>
       </section>
 
     </div>
@@ -95,11 +98,7 @@
           <button type="button" class="range-btn" data-range="90">3か月</button>
         </div>
         <canvas id="weight-chart"></canvas>
-      </section>
-
-      <section class="card">
-        <h2>記録一覧</h2>
-        <ul id="record-list" class="record-list"></ul>
+        <button type="button" id="weight-history-btn" class="small-btn">過去の記録をすべて見る</button>
       </section>
 
     </div>
@@ -142,13 +141,39 @@
           <button type="submit">設定を保存</button>
         </form>
         <p id="settings-message" class="message"></p>
-        <p>現在の基礎代謝（自動計算）: <strong id="current-bmr">-</strong> kcal/日</p>
-        <p>基準体重: <strong id="current-baseline">-</strong></p>
-        <p>記録を始めた日からのマイナスカロリーの総量: <strong id="total-deficit">-</strong> kcal</p>
       </section>
 
     </div>
 
+    <div id="tab-progress" class="tab-panel hidden">
+
+      <section class="card">
+        <h2>現在の状態</h2>
+        <p>現在の基礎代謝（自動計算）: <strong id="current-bmr">-</strong> kcal/日</p>
+        <p>基準体重: <strong id="current-baseline">-</strong></p>
+        <p>マイナスカロリーの総量: <strong id="total-deficit">-</strong> kcal</p>
+      </section>
+
+      <section class="card">
+        <h2>目標達成度</h2>
+        <div class="progress-chart-wrap">
+          <canvas id="progress-chart" width="140" height="140"></canvas>
+          <div class="progress-chart-label" id="progress-label">-</div>
+        </div>
+      </section>
+
+    </div>
+
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modal-title"></h2>
+        <button type="button" id="modal-close-btn" class="small-btn">閉じる</button>
+      </div>
+      <ul id="modal-list" class="record-list"></ul>
+    </div>
   </div>
 
 </main>

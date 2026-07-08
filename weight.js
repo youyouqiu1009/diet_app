@@ -2,7 +2,7 @@ const form = document.getElementById("record-form");
 const dateInput = document.getElementById("date");
 const weightInput = document.getElementById("weight");
 const statusMessage = document.getElementById("status-message");
-const recordList = document.getElementById("record-list");
+const weightHistoryBtn = document.getElementById("weight-history-btn");
 const chartCanvas = document.getElementById("weight-chart");
 const rangeButtons = document.querySelectorAll(".range-btn");
 
@@ -17,15 +17,28 @@ const settingsMessage = document.getElementById("settings-message");
 const currentBmrDisplay = document.getElementById("current-bmr");
 const currentBaselineDisplay = document.getElementById("current-baseline");
 const totalDeficitDisplay = document.getElementById("total-deficit");
+const progressChartCanvas = document.getElementById("progress-chart");
+const progressLabel = document.getElementById("progress-label");
 
 let weightChart = null;
+let progressChart = null;
 let weightRecords = [];
 let weightRecordsAsc = []; // 体重が入っている記録のみ、日付昇順
 let calorieDailyNet = {}; // "YYYY-MM-DD" -> その日のカロリー収支合計 (摂取 + 消費(負の値))
 let userSettings = null;
 let currentRangeDays = 30;
+let weightHistoryModalOpen = false;
 
-dateInput.value = new Date().toISOString().slice(0, 10);
+// Date を "YYYY-MM-DD" にする。toISOString() はUTCに変換されてしまい、
+// 日本時間の日付とずれる（特に午前9時より前）ため、ローカルの年月日から組み立てる。
+function formatLocalDateStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+dateInput.value = formatLocalDateStr(new Date());
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -123,7 +136,7 @@ async function loadWeightData() {
     console.error(calorieResult.error);
   } else {
     for (const record of calorieResult.data) {
-      const day = record.recorded_at.slice(0, 10);
+      const day = formatLocalDateStr(new Date(record.recorded_at));
       calorieDailyNet[day] = (calorieDailyNet[day] || 0) + record.amount;
     }
   }
@@ -141,22 +154,32 @@ async function loadWeightData() {
     }
   }
 
-  renderList(weightRecords);
   renderSettingsSummary();
   renderChart();
+  if (weightHistoryModalOpen) renderWeightHistoryModal();
 
   window.dispatchEvent(new CustomEvent("app:weightDataLoaded"));
 }
 
-function renderList(records) {
-  recordList.innerHTML = "";
+weightHistoryBtn.addEventListener("click", () => {
+  weightHistoryModalOpen = true;
+  openModal("体重記録一覧");
+  renderWeightHistoryModal();
+});
 
-  if (records.length === 0) {
-    recordList.innerHTML = "<li>まだ記録がありません</li>";
+window.addEventListener("modal:closed", () => {
+  weightHistoryModalOpen = false;
+});
+
+function renderWeightHistoryModal() {
+  modalList.innerHTML = "";
+
+  if (weightRecords.length === 0) {
+    modalList.innerHTML = "<li>まだ記録がありません</li>";
     return;
   }
 
-  for (const record of records) {
+  for (const record of weightRecords) {
     const li = document.createElement("li");
     const weightText = record.weight != null ? `${record.weight} kg` : "-";
     li.innerHTML = `
@@ -173,7 +196,7 @@ function renderList(records) {
     li.querySelector(".baseline-btn").addEventListener("click", () => setBaseline(record));
     li.querySelector(".delete-btn").addEventListener("click", () => deleteWeightRecord(record.id));
 
-    recordList.appendChild(li);
+    modalList.appendChild(li);
   }
 }
 
@@ -254,7 +277,7 @@ function buildCumulativeDeficitMap(fromDateStr, toDateStr) {
   const end = new Date(`${toDateStr}T00:00:00`);
 
   while (cursor <= end) {
-    const dayStr = cursor.toISOString().slice(0, 10);
+    const dayStr = formatLocalDateStr(cursor);
     if (Object.prototype.hasOwnProperty.call(calorieDailyNet, dayStr)) {
       const net = calorieDailyNet[dayStr];
       cumulative += bmrForDay(dayStr) - net;
@@ -273,7 +296,7 @@ function firstCalorieDateStr() {
 }
 
 function renderSettingsSummary() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = formatLocalDateStr(new Date());
 
   const latestWeight = weightAsOf(todayStr);
   if (hasCompleteProfile() && latestWeight != null) {
@@ -291,12 +314,64 @@ function renderSettingsSummary() {
   }
 
   const firstDay = firstCalorieDateStr();
+  let achievedTotal = null;
   if (firstDay) {
     const map = buildCumulativeDeficitMap(firstDay, todayStr);
-    totalDeficitDisplay.textContent = Math.round(map[todayStr]);
-  } else {
-    totalDeficitDisplay.textContent = "-";
+    achievedTotal = map[todayStr];
   }
+  totalDeficitDisplay.textContent = Number.isFinite(achievedTotal) ? Math.round(achievedTotal) : "-";
+
+  renderProgressChart(achievedTotal);
+}
+
+// 基準体重から目標体重に到達するために必要な「マイナスカロリーの総量」に対して、
+// 現在の達成度を円グラフ(ドーナツ)で表示する。
+function renderProgressChart(achievedTotal) {
+  const kcalPerKg = userSettings?.kcal_per_kg || 7200;
+  const requiredTotal =
+    userSettings?.baseline_weight != null && userSettings?.goal_weight != null
+      ? (userSettings.baseline_weight - userSettings.goal_weight) * kcalPerKg
+      : null;
+
+  if (!requiredTotal || !Number.isFinite(achievedTotal)) {
+    progressLabel.textContent = "-";
+    if (progressChart) {
+      progressChart.data.datasets[0].data = [0, 100];
+      progressChart.update();
+    }
+    return;
+  }
+
+  const percent = (achievedTotal / requiredTotal) * 100;
+  const clamped = Math.max(0, Math.min(100, percent));
+  progressLabel.textContent = `${Math.round(percent)}%`;
+
+  const data = [clamped, 100 - clamped];
+
+  if (progressChart) {
+    progressChart.data.datasets[0].data = data;
+    progressChart.update();
+    return;
+  }
+
+  progressChart = new Chart(progressChartCanvas, {
+    type: "doughnut",
+    data: {
+      labels: ["達成", "残り"],
+      datasets: [
+        {
+          data,
+          backgroundColor: [getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#f28c8f", "#f1eaea"],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      cutout: "70%",
+      plugins: { legend: { display: false } },
+    },
+  });
 }
 
 function formatMonthDay(dateStr) {
@@ -310,7 +385,7 @@ function renderChart() {
   for (let i = currentRangeDays - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    dateKeys.push(d.toISOString().slice(0, 10));
+    dateKeys.push(formatLocalDateStr(d));
   }
   const chartLabels = dateKeys.map(formatMonthDay);
 
@@ -323,7 +398,7 @@ function renderChart() {
   let theoreticalWeights = dateKeys.map(() => null);
 
   if (userSettings?.baseline_weight != null && userSettings?.baseline_date) {
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = formatLocalDateStr(today);
     const kcalPerKg = userSettings.kcal_per_kg || 7200;
     const deficitMap = buildCumulativeDeficitMap(userSettings.baseline_date, todayStr);
 
