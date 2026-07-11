@@ -14,16 +14,22 @@ const appContent = document.getElementById("app-content");
 const signoutButton = document.getElementById("signout-button");
 
 sb.auth.onAuthStateChange((_event, session) => {
-  if (session) {
-    loginCard.classList.add("hidden");
-    appContent.classList.remove("hidden");
-    signoutButton.classList.remove("hidden");
-    window.dispatchEvent(new CustomEvent("app:authenticated"));
-  } else {
-    loginCard.classList.remove("hidden");
-    appContent.classList.add("hidden");
-    signoutButton.classList.add("hidden");
-  }
+  // setTimeoutで処理を遅らせる理由:
+  // (1) このコールバックが calorie.js / weight.js の読み込み前に発火すると
+  //     app:authenticated を聞き逃してデータが表示されない
+  // (2) Supabaseの仕様上、このコールバック内で直接DB問い合わせをすると固まることがある
+  setTimeout(() => {
+    if (session) {
+      loginCard.classList.add("hidden");
+      appContent.classList.remove("hidden");
+      signoutButton.classList.remove("hidden");
+      window.dispatchEvent(new CustomEvent("app:authenticated"));
+    } else {
+      loginCard.classList.remove("hidden");
+      appContent.classList.add("hidden");
+      signoutButton.classList.add("hidden");
+    }
+  }, 0);
 });
 
 loginForm.addEventListener("submit", async (e) => {
