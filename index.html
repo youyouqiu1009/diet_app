@@ -4,10 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ダイエット記録</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f28c8f">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ダイエット記録">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2">
+<!-- JS/CSSを変更したら、下と末尾のscriptの ?v= の数字をすべて+1してからpushする -->
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -25,10 +33,19 @@
         メールアドレス
         <input type="email" id="login-email" required>
       </label>
-      <button type="submit">ログインリンクを送る</button>
+      <button type="submit">コードを送る</button>
     </form>
     <p id="login-message"></p>
-    <p class="hint">※ iPhoneでメールアプリからリンクを開くときは、リンクを長押しして「Safariで開く」を選んでください（タップだけだとログインが反映されないことがあります）。</p>
+
+    <form id="login-code-form" class="hidden">
+      <label>
+        メールに届いたコード
+        <input type="text" id="login-code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required>
+      </label>
+      <button type="submit">コードでログイン</button>
+    </form>
+    <p id="login-code-message" class="message"></p>
+    <p class="hint">※ メールに書かれたコードをここに入力するとログインできます（リンクをタップする方式より確実です）。</p>
   </section>
 
   <div id="app-content" class="hidden">
@@ -64,7 +81,8 @@
 
       <section class="card">
         <h2><span id="calorie-list-date-label">今日</span>の合計: <span id="calorie-today-total">0</span> kcal</h2>
-        <p>目標体重達成に必要な今日の収支（摂取−消費）: <strong id="goal-hint">-</strong></p>
+        <p>目標達成ライン: <strong id="goal-hint">-</strong></p>
+        <p>現状維持ライン: <strong id="maintain-hint">-</strong></p>
         <ul id="calorie-today-list" class="record-list"></ul>
         <button type="button" id="calorie-history-btn" class="small-btn">過去の記録をすべて見る</button>
       </section>
@@ -124,6 +142,16 @@
             <input type="number" id="setting-height" step="0.1">
           </label>
           <label>
+            活動量
+            <select id="setting-activity-factor">
+              <option value="1.2">ほとんど運動しない（デスクワーク中心・一日中室内）</option>
+              <option value="1.375">軽い運動（週1〜3回の軽い運動や散歩）</option>
+              <option value="1.55">中程度の運動（週3〜5回の運動）</option>
+              <option value="1.725">激しい運動（ほぼ毎日の運動）</option>
+              <option value="1.9">非常に激しい運動（毎日の激しい運動や肉体労働）</option>
+            </select>
+          </label>
+          <label>
             目標体重 (kg)
             <input type="number" id="setting-goal-weight" step="0.1">
           </label>
@@ -149,7 +177,7 @@
 
       <section class="card">
         <h2>現在の状態</h2>
-        <p>現在の基礎代謝（自動計算）: <strong id="current-bmr">-</strong> kcal/日</p>
+        <p>1日の消費カロリー（基礎代謝×活動量）: <strong id="current-bmr">-</strong> kcal/日</p>
         <p>基準体重: <strong id="current-baseline">-</strong></p>
         <p>マイナスカロリーの総量: <strong id="total-deficit">-</strong> kcal</p>
       </section>
@@ -180,8 +208,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="app.js"></script>
-<script src="calorie.js"></script>
-<script src="weight.js"></script>
+<script src="app.js?v=3"></script>
+<script src="calorie.js?v=3"></script>
+<script src="weight.js?v=3"></script>
 </body>
 </html>
