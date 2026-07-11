@@ -27,7 +27,7 @@ let weightRecords = [];
 let weightRecordsAsc = []; // 体重が入っている記録のみ、日付昇順
 let calorieDailyNet = {}; // "YYYY-MM-DD" -> その日のカロリー収支合計 (摂取 + 消費(負の値))
 let userSettings = null;
-let currentRangeDays = 30;
+let currentRangeDays = 14;
 let weightHistoryModalOpen = false;
 
 // Date を "YYYY-MM-DD" にする。toISOString() はUTCに変換されてしまい、

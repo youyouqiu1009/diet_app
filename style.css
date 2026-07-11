@@ -86,6 +86,21 @@ textarea {
   border-radius: 8px;
 }
 
+/* iOS Safariは日付系入力を独自描画し width:100% を無視して枠からはみ出すため、
+   独自描画を無効化して他の入力欄と同じ見た目に揃える */
+input[type="date"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  max-width: 100%;
+  min-height: 2.5em;
+}
+
+/* iOSで日付の値が中央寄せになるのを左寄せに */
+input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 select {
   -webkit-appearance: none;
   appearance: none;
