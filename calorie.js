@@ -8,6 +8,7 @@ const calorieTodayTotal = document.getElementById("calorie-today-total");
 const calorieTodayList = document.getElementById("calorie-today-list");
 const calorieHistoryBtn = document.getElementById("calorie-history-btn");
 const goalHintDisplay = document.getElementById("goal-hint");
+const maintainHintDisplay = document.getElementById("maintain-hint");
 
 function nowForDatetimeLocalInput() {
   const now = new Date();
@@ -171,9 +172,21 @@ async function openCalorieHistoryModal() {
 }
 
 // weight.js が読み込み終わったタイミングで、目標体重達成に必要な今日の収支を計算する。
-// (userSettings / weightAsOf / bmrForDay は weight.js で定義されるグローバル)
+// (userSettings / weightAsOf / tdeeForDay は weight.js で定義されるグローバル)
 function updateGoalHint() {
   const todayStr = todayDateStr();
+  const currentWeight = weightAsOf(todayStr);
+
+  if (!hasCompleteProfile() || currentWeight == null) {
+    goalHintDisplay.textContent = "-";
+    maintainHintDisplay.textContent = "-";
+    return;
+  }
+
+  const tdee = tdeeForDay(todayStr);
+
+  // 現状維持ライン: 1日の消費カロリー(TDEE)と同じ収支なら体重は変わらない
+  maintainHintDisplay.textContent = `${Math.round(tdee)} kcal以下`;
 
   if (!userSettings?.goal_weight || !userSettings?.goal_date) {
     goalHintDisplay.textContent = "-";
@@ -189,16 +202,10 @@ function updateGoalHint() {
     return;
   }
 
-  const currentWeight = weightAsOf(todayStr);
-  if (!hasCompleteProfile() || currentWeight == null) {
-    goalHintDisplay.textContent = "-";
-    return;
-  }
-
   const kcalPerKg = userSettings.kcal_per_kg || 7200;
   const remainingKg = currentWeight - userSettings.goal_weight;
   const requiredDailyDeficit = (remainingKg * kcalPerKg) / remainingDays;
-  const targetNet = Math.round(bmrForDay(todayStr) - requiredDailyDeficit);
+  const targetNet = Math.round(tdee - requiredDailyDeficit);
 
   goalHintDisplay.textContent = `${targetNet} kcal以下`;
 }

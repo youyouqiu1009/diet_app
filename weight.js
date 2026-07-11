@@ -10,6 +10,7 @@ const settingsForm = document.getElementById("settings-form");
 const genderInput = document.getElementById("setting-gender");
 const birthDateInput = document.getElementById("setting-birth-date");
 const heightInput = document.getElementById("setting-height");
+const activityFactorInput = document.getElementById("setting-activity-factor");
 const goalWeightInput = document.getElementById("setting-goal-weight");
 const goalDateInput = document.getElementById("setting-goal-date");
 const kcalPerKgInput = document.getElementById("setting-kcal-per-kg");
@@ -77,6 +78,7 @@ settingsForm.addEventListener("submit", async (e) => {
     gender: genderInput.value,
     birth_date: birthDateInput.value || null,
     height_cm: heightInput.value ? Number(heightInput.value) : null,
+    activity_factor: Number(activityFactorInput.value) || 1.2,
     goal_weight: goalWeightInput.value ? Number(goalWeightInput.value) : null,
     goal_date: goalDateInput.value || null,
     kcal_per_kg: kcalPerKgInput.value ? Number(kcalPerKgInput.value) : 7200,
@@ -106,6 +108,7 @@ async function loadSettings() {
     genderInput.value = data.gender || "male";
     birthDateInput.value = data.birth_date || "";
     heightInput.value = data.height_cm ?? "";
+    activityFactorInput.value = data.activity_factor ?? 1.2;
     goalWeightInput.value = data.goal_weight ?? "";
     goalDateInput.value = data.goal_date || "";
     kcalPerKgInput.value = data.kcal_per_kg ?? 7200;
@@ -260,12 +263,14 @@ function weightAsOf(dayStr) {
   return result;
 }
 
-function bmrForDay(dayStr) {
+// その日の推定消費カロリー(TDEE) = 基礎代謝 × 活動量係数
+function tdeeForDay(dayStr) {
   if (!userSettings?.height_cm || !userSettings?.birth_date || !userSettings?.gender) return 0;
   const weight = weightAsOf(dayStr);
   if (weight == null) return 0;
   const age = calculateAge(userSettings.birth_date, new Date(`${dayStr}T00:00:00`));
-  return calculateBmr(weight, userSettings.height_cm, age, userSettings.gender) ?? 0;
+  const bmr = calculateBmr(weight, userSettings.height_cm, age, userSettings.gender) ?? 0;
+  return bmr * (userSettings.activity_factor || 1.2);
 }
 
 // fromDateStr から toDateStr までの日ごとの累積収支(基礎代謝+運動消費-摂取)を計算する。
@@ -280,7 +285,7 @@ function buildCumulativeDeficitMap(fromDateStr, toDateStr) {
     const dayStr = formatLocalDateStr(cursor);
     if (Object.prototype.hasOwnProperty.call(calorieDailyNet, dayStr)) {
       const net = calorieDailyNet[dayStr];
-      cumulative += bmrForDay(dayStr) - net;
+      cumulative += tdeeForDay(dayStr) - net;
     }
     map[dayStr] = cumulative;
     cursor.setDate(cursor.getDate() + 1);
@@ -300,9 +305,7 @@ function renderSettingsSummary() {
 
   const latestWeight = weightAsOf(todayStr);
   if (hasCompleteProfile() && latestWeight != null) {
-    const age = calculateAge(userSettings.birth_date, new Date());
-    const bmr = calculateBmr(latestWeight, userSettings.height_cm, age, userSettings.gender);
-    currentBmrDisplay.textContent = Math.round(bmr);
+    currentBmrDisplay.textContent = Math.round(tdeeForDay(todayStr));
   } else {
     currentBmrDisplay.textContent = "-";
   }

@@ -7,6 +7,9 @@ const loginCard = document.getElementById("login-card");
 const loginForm = document.getElementById("login-form");
 const loginEmailInput = document.getElementById("login-email");
 const loginMessage = document.getElementById("login-message");
+const loginCodeForm = document.getElementById("login-code-form");
+const loginCodeInput = document.getElementById("login-code");
+const loginCodeMessage = document.getElementById("login-code-message");
 const appContent = document.getElementById("app-content");
 const signoutButton = document.getElementById("signout-button");
 
@@ -38,7 +41,33 @@ loginForm.addEventListener("submit", async (e) => {
     return;
   }
 
-  loginMessage.textContent = "ログイン用のリンクをメールで送りました。メールを確認してください。";
+  loginMessage.textContent = "メールを送りました。リンクをタップするか、下にコードを入力してください。";
+  loginCodeForm.classList.remove("hidden");
+  loginCodeInput.focus();
+});
+
+loginCodeForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  loginCodeMessage.textContent = "確認中...";
+
+  const email = loginEmailInput.value.trim().toLowerCase();
+  const token = loginCodeInput.value.trim();
+
+  let { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+
+  // 環境によって type: "magiclink" でないと検証が通らないケースがあるため、失敗時はそちらでも試す
+  if (error) {
+    const retry = await sb.auth.verifyOtp({ email, token, type: "magiclink" });
+    error = retry.error;
+  }
+
+  if (error) {
+    loginCodeMessage.textContent = `ログインに失敗しました: ${error.message}`;
+    console.error(error);
+    return;
+  }
+
+  loginCodeMessage.textContent = "";
 });
 
 signoutButton.addEventListener("click", async () => {
