@@ -411,23 +411,27 @@ function renderAchievements(achievements) {
   for (const achievement of sorted) {
     const item = document.createElement("li");
     item.className = "achievement-item";
-    const icon = document.createElement("span");
+    const icon = document.createElement("img");
     icon.className = "achievement-icon";
-    icon.textContent = "🏆";
-    icon.setAttribute("aria-hidden", "true");
+    icon.src = "icons/achievement-medal.svg";
+    icon.alt = "";
+    icon.width = 32;
+    icon.height = 38;
     const content = document.createElement("div");
+    content.className = "record-content";
     const title = document.createElement("strong");
+    title.className = "record-date";
     title.textContent = `${Number(achievement.goal_weight)} kg の目標を達成！`;
     const method = document.createElement("span");
-    method.className = "achievement-method";
+    method.className = "record-weight achievement-method";
     method.textContent = achievement.achievement_type === "actual" ? "実測体重で達成" : "理論体重で達成";
     const detail = document.createElement("p");
-    detail.className = "achievement-detail";
+    detail.className = "record-memo achievement-detail";
     detail.textContent = `達成日: ${achievement.achieved_date} · 基準体重: ${Number(achievement.baseline_weight)} kg`;
     content.append(title, method, detail);
     if (achievement.goal_date) {
       const deadline = document.createElement("p");
-      deadline.className = "achievement-detail";
+      deadline.className = "record-memo achievement-detail";
       deadline.textContent = `目標日: ${achievement.goal_date}`;
       content.appendChild(deadline);
     }

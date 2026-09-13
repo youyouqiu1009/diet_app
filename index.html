@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
 <!-- JS/CSSを変更したら、下と末尾のscriptの ?v= の数字をすべて+1してからpushする -->
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -116,7 +116,6 @@
           <button type="button" class="range-btn" data-range="90">3か月</button>
         </div>
         <canvas id="weight-chart"></canvas>
-        <p class="hint">今日の理論体重は、昨日と同じ暫定値です。</p>
         <button type="button" id="weight-history-btn" class="small-btn">過去の記録をすべて見る</button>
       </section>
 
@@ -185,7 +184,6 @@
 
       <section class="card">
         <h2>目標達成度</h2>
-        <p class="hint">昨日までの記録を反映しています。</p>
         <div class="progress-chart-wrap">
           <canvas id="progress-chart" width="140" height="140"></canvas>
           <div class="progress-chart-label" id="progress-label">-</div>
@@ -195,11 +193,7 @@
       <section class="card">
         <h2>アチーブメント</h2>
         <p id="achievement-message" class="hint" role="status"></p>
-        <ul id="achievement-list" class="achievement-list"></ul>
-        <div class="achievement-item">
-          <span class="achievement-icon" aria-hidden="true">🌱</span>
-          <div><strong>はじめの一歩</strong></div>
-        </div>
+        <ul id="achievement-list" class="record-list"></ul>
       </section>
 
     </div>
@@ -220,8 +214,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="app.js?v=8"></script>
-<script src="calorie.js?v=8"></script>
-<script src="weight.js?v=8"></script>
+<script src="app.js?v=9"></script>
+<script src="calorie.js?v=9"></script>
+<script src="weight.js?v=9"></script>
 </body>
 </html>

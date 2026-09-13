@@ -177,44 +177,31 @@ button:active {
   margin: 0;
 }
 
-.achievement-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.achievement-item {
-  display: flex;
+.record-list .achievement-item {
   align-items: flex-start;
-  gap: 12px;
-  padding: 14px;
-  margin-top: 12px;
-  background: var(--accent-soft);
-  border-radius: 10px;
-  font-size: 0.9rem;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
   overflow-wrap: anywhere;
 }
 
 .achievement-icon {
   flex-shrink: 0;
-  font-size: 1.8rem;
+  width: 32px;
+  height: 38px;
+  object-fit: contain;
+}
+
+.achievement-item .record-content {
+  min-width: 0;
 }
 
 .achievement-detail {
-  margin: 6px 0 0;
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  margin: 2px 0 0;
 }
 
 .achievement-method {
-  display: table;
-  margin-top: 8px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--accent-dark);
-  font-size: 0.75rem;
-  font-weight: bold;
+  display: block;
+  margin-top: 2px;
 }
 
 #achievement-message:empty {
