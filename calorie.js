@@ -172,7 +172,7 @@ async function openCalorieHistoryModal() {
 }
 
 // weight.js が読み込み終わったタイミングで、目標体重達成に必要な今日の収支を計算する。
-// (userSettings / weightAsOf / tdeeForDay は weight.js で定義されるグローバル)
+// (理論体重と消費カロリーの計算は weight.js で定義)
 function updateGoalHint() {
   const todayStr = todayDateStr();
   const currentWeight = weightAsOf(todayStr);
@@ -193,17 +193,27 @@ function updateGoalHint() {
     return;
   }
 
-  const today = new Date();
-  const goalDate = new Date(`${userSettings.goal_date}T00:00:00`);
-  const remainingDays = Math.ceil((goalDate - today) / (1000 * 60 * 60 * 24));
+  const theoreticalWeight = theoreticalWeightAsOf(todayStr);
+  if (theoreticalWeight == null) {
+    goalHintDisplay.textContent = "基準体重を設定してください";
+    return;
+  }
+  if (theoreticalWeight <= userSettings.goal_weight) {
+    goalHintDisplay.textContent = "目標達成！";
+    return;
+  }
 
-  if (remainingDays <= 0) {
+  const today = new Date(`${todayStr}T00:00:00`);
+  const goalDate = new Date(`${userSettings.goal_date}T00:00:00`);
+
+  if (goalDate < today) {
     goalHintDisplay.textContent = "目標日を過ぎています";
     return;
   }
 
+  const remainingDays = Math.max(1, Math.ceil((goalDate - today) / (1000 * 60 * 60 * 24)));
   const kcalPerKg = userSettings.kcal_per_kg || 7200;
-  const remainingKg = currentWeight - userSettings.goal_weight;
+  const remainingKg = theoreticalWeight - userSettings.goal_weight;
   const requiredDailyDeficit = (remainingKg * kcalPerKg) / remainingDays;
   const targetNet = Math.round(tdee - requiredDailyDeficit);
 

@@ -177,6 +177,35 @@ button:active {
   margin: 0;
 }
 
+.achievement-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.achievement-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 12px;
+  background: var(--accent-soft);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.achievement-icon {
+  flex-shrink: 0;
+  font-size: 1.8rem;
+}
+
+.achievement-detail {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 .record-list li {
   display: flex;
   justify-content: space-between;

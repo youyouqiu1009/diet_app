@@ -20,6 +20,8 @@ const currentBaselineDisplay = document.getElementById("current-baseline");
 const totalDeficitDisplay = document.getElementById("total-deficit");
 const progressChartCanvas = document.getElementById("progress-chart");
 const progressLabel = document.getElementById("progress-label");
+const achievementList = document.getElementById("achievement-list");
+const achievementMessage = document.getElementById("achievement-message");
 
 let weightChart = null;
 let progressChart = null;
@@ -99,7 +101,7 @@ async function loadSettings() {
 
   if (error) {
     console.error(error);
-    return;
+    return false;
   }
 
   userSettings = data;
@@ -113,19 +115,21 @@ async function loadSettings() {
     goalDateInput.value = data.goal_date || "";
     kcalPerKgInput.value = data.kcal_per_kg ?? 7200;
   }
+  return true;
 }
 
 async function loadWeightData() {
-  await loadSettings();
+  if (!await loadSettings()) return;
 
   const [weightResult, calorieResult] = await Promise.all([
     sb.from("diet_records").select("*").order("date", { ascending: false }),
     sb.from("calorie_records").select("*"),
   ]);
 
-  if (weightResult.error) {
-    statusMessage.textContent = `読み込みに失敗しました: ${weightResult.error.message}`;
-    console.error(weightResult.error);
+  const loadError = weightResult.error || calorieResult.error;
+  if (loadError) {
+    statusMessage.textContent = `読み込みに失敗しました: ${loadError.message}`;
+    console.error(loadError);
     return;
   }
 
@@ -135,13 +139,9 @@ async function loadWeightData() {
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   calorieDailyNet = {};
-  if (calorieResult.error) {
-    console.error(calorieResult.error);
-  } else {
-    for (const record of calorieResult.data) {
-      const day = formatLocalDateStr(new Date(record.recorded_at));
-      calorieDailyNet[day] = (calorieDailyNet[day] || 0) + record.amount;
-    }
+  for (const record of calorieResult.data) {
+    const day = formatLocalDateStr(new Date(record.recorded_at));
+    calorieDailyNet[day] = (calorieDailyNet[day] || 0) + record.amount;
   }
 
   // まだ基準が無ければ、一番古い体重記録を自動的に基準にする
@@ -162,6 +162,7 @@ async function loadWeightData() {
   if (weightHistoryModalOpen) renderWeightHistoryModal();
 
   window.dispatchEvent(new CustomEvent("app:weightDataLoaded"));
+  await syncAchievements();
 }
 
 weightHistoryBtn.addEventListener("click", () => {
@@ -300,6 +301,117 @@ function firstCalorieDateStr() {
   return days.sort()[0];
 }
 
+function lastCompletedDateStr() {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return formatLocalDateStr(yesterday);
+}
+
+// グラフ・目標達成ライン・達成判定で共通の、丸め前の理論体重。
+// 昨日までの日別収支を反映し、今日の点には昨日の値を暫定的に引き継ぐ。
+function buildTheoreticalWeightMap(toDateStr) {
+  if (!hasCompleteProfile() || userSettings?.baseline_weight == null || !userSettings?.baseline_date) {
+    return {};
+  }
+  const todayStr = formatLocalDateStr(new Date());
+  const yesterdayStr = lastCompletedDateStr();
+  const endDateStr = toDateStr < yesterdayStr ? toDateStr : yesterdayStr;
+  const kcalPerKg = userSettings.kcal_per_kg || 7200;
+  const deficitMap = buildCumulativeDeficitMap(userSettings.baseline_date, endDateStr);
+  const weights = Object.fromEntries(Object.entries(deficitMap).map(([day, deficit]) => [
+    day, userSettings.baseline_weight - deficit / kcalPerKg,
+  ]));
+  if (toDateStr >= todayStr && userSettings.baseline_date <= todayStr) {
+    // 基準日が今日なら、まだ確定した収支が無いため基準体重を表示する。
+    weights[todayStr] = weights[yesterdayStr] ?? Number(userSettings.baseline_weight);
+  }
+  return weights;
+}
+
+function theoreticalWeightAsOf(dayStr) {
+  return buildTheoreticalWeightMap(dayStr)[dayStr] ?? null;
+}
+
+// 日々の揺れで達成が取り消されないよう、最初に到達した日を履歴として保存する。
+function currentGoalAchievement() {
+  if (userSettings?.goal_weight == null || userSettings?.baseline_weight == null ||
+      userSettings.goal_weight >= userSettings.baseline_weight) return null;
+
+  const weights = buildTheoreticalWeightMap(lastCompletedDateStr());
+  const achievedDate = Object.keys(weights).find((day) => weights[day] <= userSettings.goal_weight);
+  if (!achievedDate) return null;
+
+  const { baseline_date, baseline_weight, goal_weight, goal_date } = userSettings;
+  return {
+    goal_key: JSON.stringify([baseline_date, Number(baseline_weight), Number(goal_weight), goal_date || null]),
+    baseline_date,
+    baseline_weight,
+    goal_weight,
+    goal_date: goal_date || null,
+    achieved_date: achievedDate,
+    theoretical_weight: weights[achievedDate],
+  };
+}
+
+async function syncAchievements() {
+  const achievement = currentGoalAchievement();
+  achievementMessage.textContent = "読み込み中...";
+  achievementList.replaceChildren();
+
+  try {
+    const { data, error } = await sb.from("goal_achievements")
+      .select("*").order("achieved_date", { ascending: false });
+    if (error) throw error;
+
+    if (achievement && !data.some((item) => item.goal_key === achievement.goal_key)) {
+      // 重複した読み込みが起きても、同じ目標の達成履歴は1件だけ保存する。
+      const result = await sb.from("goal_achievements").upsert(achievement, {
+        onConflict: "user_id,goal_key", ignoreDuplicates: true,
+      });
+      if (result.error) {
+        renderAchievements(data);
+        achievementMessage.textContent = "達成履歴を保存できませんでした。次回の読み込み時に再試行します。";
+        console.error(result.error);
+        return;
+      }
+      data.push(achievement);
+    }
+    renderAchievements(data);
+  } catch (error) {
+    achievementMessage.textContent = "達成履歴を読み込めませんでした。接続状況と保存先の設定を確認してください。";
+    console.error(error);
+  }
+}
+
+function renderAchievements(achievements) {
+  achievementList.replaceChildren();
+  achievementMessage.textContent = achievements.length ? "" : "目標を達成すると、ここに履歴が残ります。";
+  const sorted = [...achievements].sort((a, b) => b.achieved_date.localeCompare(a.achieved_date));
+  for (const achievement of sorted) {
+    const item = document.createElement("li");
+    item.className = "achievement-item";
+    const icon = document.createElement("span");
+    icon.className = "achievement-icon";
+    icon.textContent = "🏆";
+    icon.setAttribute("aria-hidden", "true");
+    const content = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${Number(achievement.goal_weight)} kg の目標を達成！`;
+    const detail = document.createElement("p");
+    detail.className = "achievement-detail";
+    detail.textContent = `達成日: ${achievement.achieved_date} · 基準体重: ${Number(achievement.baseline_weight)} kg`;
+    content.append(title, detail);
+    if (achievement.goal_date) {
+      const deadline = document.createElement("p");
+      deadline.className = "achievement-detail";
+      deadline.textContent = `目標日: ${achievement.goal_date}`;
+      content.appendChild(deadline);
+    }
+    item.append(icon, content);
+    achievementList.appendChild(item);
+  }
+}
+
 function renderSettingsSummary() {
   const todayStr = formatLocalDateStr(new Date());
 
@@ -317,14 +429,19 @@ function renderSettingsSummary() {
   }
 
   const firstDay = firstCalorieDateStr();
+  const yesterdayStr = lastCompletedDateStr();
   let achievedTotal = null;
-  if (firstDay) {
-    const map = buildCumulativeDeficitMap(firstDay, todayStr);
-    achievedTotal = map[todayStr];
+  if (firstDay && firstDay <= todayStr) {
+    const map = buildCumulativeDeficitMap(firstDay, yesterdayStr);
+    achievedTotal = map[yesterdayStr] ?? 0;
   }
   totalDeficitDisplay.textContent = Number.isFinite(achievedTotal) ? Math.round(achievedTotal) : "-";
 
-  renderProgressChart(achievedTotal);
+  // 達成度はグラフと同じ基準日から昨日までの収支で計算する。
+  const theoreticalWeight = theoreticalWeightAsOf(todayStr);
+  const goalDeficit = theoreticalWeight == null ? null
+    : (userSettings.baseline_weight - theoreticalWeight) * (userSettings.kcal_per_kg || 7200);
+  renderProgressChart(goalDeficit);
 }
 
 // 基準体重から目標体重に到達するために必要な「マイナスカロリーの総量」に対して、
@@ -336,7 +453,7 @@ function renderProgressChart(achievedTotal) {
       ? (userSettings.baseline_weight - userSettings.goal_weight) * kcalPerKg
       : null;
 
-  if (!requiredTotal || !Number.isFinite(achievedTotal)) {
+  if (requiredTotal == null || requiredTotal <= 0 || !Number.isFinite(achievedTotal)) {
     progressLabel.textContent = "-";
     if (progressChart) {
       progressChart.data.datasets[0].data = [0, 100];
@@ -398,20 +515,9 @@ function renderChart() {
   }
   const actualWeights = dateKeys.map((d) => weightByDate[d] ?? null);
 
-  let theoreticalWeights = dateKeys.map(() => null);
-
-  if (userSettings?.baseline_weight != null && userSettings?.baseline_date) {
-    const todayStr = formatLocalDateStr(today);
-    const kcalPerKg = userSettings.kcal_per_kg || 7200;
-    const deficitMap = buildCumulativeDeficitMap(userSettings.baseline_date, todayStr);
-
-    theoreticalWeights = dateKeys.map((d) => {
-      if (d < userSettings.baseline_date) return null;
-      const cumulative = deficitMap[d];
-      if (cumulative === undefined) return null;
-      return Math.round((userSettings.baseline_weight - cumulative / kcalPerKg) * 10) / 10;
-    });
-  }
+  const theoreticalMap = buildTheoreticalWeightMap(formatLocalDateStr(today));
+  const theoreticalWeights = dateKeys.map((day) => theoreticalMap[day] == null
+    ? null : Math.round(theoreticalMap[day] * 10) / 10);
 
   const datasets = [
     {
