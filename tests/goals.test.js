@@ -49,6 +49,7 @@ async function runGoalTests(weightSource, calorieSource) {
   const charts = {};
   function Chart(canvas, config) {
     this.data = config.data;
+    this.options = config.options;
     this.update = () => {};
     charts[config.type] = this;
   }
@@ -62,7 +63,7 @@ async function runGoalTests(weightSource, calorieSource) {
     `${weightSource}\n${calorieSource}\nreturn {
       set(settings, weights, calories) { userSettings = settings; weightRecords = weights; weightRecordsAsc = weights; calorieDailyNet = calories; },
       theoreticalWeightAsOf, buildTheoreticalWeightMap, currentGoalAchievement, syncAchievements,
-      updateGoalHint, renderSettingsSummary, renderChart, tdeeForDay,
+      updateGoalHint, renderSettingsSummary, renderProgressChart, renderChart, tdeeForDay,
       today: formatLocalDateStr(new Date()),
     };`)(document, window, sb, Chart, () => ({ getPropertyValue: () => "#f28c8f" }), { error() {} }, TestDate);
   const today = api.today;
@@ -219,6 +220,69 @@ async function runGoalTests(weightSource, calorieSource) {
   api.set(settings, [{ date: yesterday, weight: 68.01 }], {});
   assert(api.currentGoalAchievement("actual") === null, "Actual award must use unrounded measurement");
   results.push("Actual award respects completed-day cutoff and valid unrounded measurements");
+
+  api.set(settings, actualWeights, { [yesterday]: yesterdayTdee - 7200 });
+  api.renderSettingsSummary();
+  assert(elements["current-goal"].textContent === "68 kg", "Current status shows goal weight");
+  let chartValues = charts.doughnut.data.datasets[0].data;
+  assert(chartValues[0] === 7200 && chartValues[1] === 7200, "Doughnut stores calories instead of percentages");
+  const tooltip = charts.doughnut.options.plugins.tooltip.callbacks.label;
+  assert(tooltip({ label: "達成", parsed: chartValues[0] }) === "達成: 7,200 kcal", "Achieved tooltip shows calories");
+  api.renderProgressChart(3600);
+  chartValues = charts.doughnut.data.datasets[0].data;
+  assert(chartValues[1] === 10800 && tooltip({ label: "残り", parsed: chartValues[1] }) === "残り: 10,800 kcal", "Updated remaining tooltip uses latest calories");
+  api.renderProgressChart(21600);
+  chartValues = charts.doughnut.data.datasets[0].data;
+  assert(chartValues[0] === 21600 && chartValues[1] === 0, "Overachievement preserves actual calories and zero remaining");
+  api.renderProgressChart(-7200);
+  chartValues = charts.doughnut.data.datasets[0].data;
+  assert(chartValues[0] === 0 && chartValues[1] === 21600, "Calorie surplus adds to remaining without negative slices");
+  api.set({ ...settings, goal_weight: null }, actualWeights, {});
+  api.renderSettingsSummary();
+  assert(elements["current-goal"].textContent === "-", "Missing target clears current status");
+  assert(charts.doughnut.data.datasets[0].data.every((value) => value === 0), "Missing target clears obsolete calorie slices");
+  results.push("Goal summary and calorie tooltips including updates, overachievement, and missing settings");
+
+  saved.length = 0;
+  insertCount = 0;
+  const streakSettings = { ...settings, baseline_date: dayOffset(-30) };
+  const streakRecords = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, date: dayOffset(-20 + i * 2), weight: 68 }));
+  api.set(streakSettings, streakRecords.slice(0, 6), {});
+  assert(api.currentGoalAchievement("actual_streak") === null, "Six records are insufficient");
+  api.set(streakSettings, [...streakRecords].reverse(), {});
+  const sevenAward = api.currentGoalAchievement("actual_streak");
+  assert(sevenAward.achieved_date === streakRecords[6].date, "Seven records with gaps award on seventh record date in chronological order");
+  await api.syncAchievements();
+  await api.syncAchievements();
+  assert(saved.length === 2 && insertCount === 2, "First and seven-record awards are persisted once each");
+  let titles = elements["achievement-list"].children.map((item) => item.children[1].children[0].textContent);
+  assert(titles.includes("68kgの目標を初めて達成！") && titles.includes("68kgの目標を達成！"), "Both requested actual achievement titles are visible");
+  assert(elements["achievement-list"].children.some((item) => item.children[1].children[1].textContent === "実測体重で達成（7記録連続）"), "Streak method is explicit");
+  api.set(streakSettings, [...streakRecords, { date: yesterday, weight: 69 }], {});
+  await api.syncAchievements();
+  assert(saved.length === 2, "Previously completed streak survives rebound");
+  results.push("First arrival and seven-record streak awards, titles, gaps, ordering, deduplication, and permanence");
+
+  const resetRecords = [
+    { date: dayOffset(-20), weight: 68 },
+    { date: dayOffset(-19), weight: 68 },
+    { date: dayOffset(-18), weight: 68.01 },
+    ...Array.from({ length: 6 }, (_, i) => ({ date: dayOffset(-17 + i), weight: 68 })),
+  ];
+  api.set(streakSettings, resetRecords, {});
+  assert(api.currentGoalAchievement("actual_streak") === null, "Above-target measurement resets streak");
+  api.set(streakSettings, [...resetRecords, { date: dayOffset(-10), weight: null }, { date: dayOffset(-9), weight: 67.9 }], {});
+  assert(api.currentGoalAchievement("actual_streak").achieved_date === dayOffset(-9), "Missing weight is skipped; seventh measured record completes new streak");
+  const sameDayRecords = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, date: yesterday, weight: 68 }));
+  api.set(streakSettings, [...sameDayRecords].reverse(), {});
+  assert(api.currentGoalAchievement("actual_streak").achieved_date === yesterday, "Same-day measurements count as separate records");
+  api.set(streakSettings, [{ id: 4, date: yesterday, weight: 69 }, ...sameDayRecords.filter((row) => row.id !== 4).reverse()], {});
+  assert(api.currentGoalAchievement("actual_streak") === null, "Same-day ID ordering respects above-goal interruption");
+  api.set(streakSettings, [...streakRecords.slice(0, 6), { date: today, weight: 68 }], {});
+  assert(api.currentGoalAchievement("actual_streak") === null, "Today's measurement cannot complete a streak yet");
+  api.set({ ...streakSettings, baseline_date: streakRecords[1].date }, streakRecords, {});
+  assert(api.currentGoalAchievement("actual_streak") === null, "Records before new baseline cannot complete a streak");
+  results.push("Streak reset, missing weights, same-day measurements, completed-day cutoff, and baseline cutoff");
   return results;
 }
 

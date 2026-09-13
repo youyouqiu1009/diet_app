@@ -17,6 +17,7 @@ const kcalPerKgInput = document.getElementById("setting-kcal-per-kg");
 const settingsMessage = document.getElementById("settings-message");
 const currentBmrDisplay = document.getElementById("current-bmr");
 const currentBaselineDisplay = document.getElementById("current-baseline");
+const currentGoalDisplay = document.getElementById("current-goal");
 const totalDeficitDisplay = document.getElementById("total-deficit");
 const progressChartCanvas = document.getElementById("progress-chart");
 const progressLabel = document.getElementById("progress-label");
@@ -136,7 +137,7 @@ async function loadWeightData() {
   weightRecords = weightResult.data;
   weightRecordsAsc = weightRecords
     .filter((r) => r.weight != null)
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    .sort(compareWeightRecords);
 
   calorieDailyNet = {};
   for (const record of calorieResult.data) {
@@ -332,7 +333,37 @@ function theoreticalWeightAsOf(dayStr) {
   return buildTheoreticalWeightMap(dayStr)[dayStr] ?? null;
 }
 
-// 日々の揺れで達成が取り消されないよう、最初に到達した日を履歴として保存する。
+// 同じ日の複数記録も、作成日時・IDの順に並べて連続達成を判定する。
+function compareWeightRecords(a, b) {
+  return a.date.localeCompare(b.date) ||
+    String(a.created_at || "").localeCompare(String(b.created_at || "")) ||
+    String(a.id ?? "").localeCompare(String(b.id ?? ""), "en", { numeric: true });
+}
+
+function firstActualGoalRecord(requiredCount) {
+  const endDate = lastCompletedDateStr();
+  let streak = 0;
+  for (const record of [...weightRecordsAsc].sort(compareWeightRecords)) {
+    const weight = Number(record.weight);
+    if (record.date < userSettings.baseline_date || record.date > endDate ||
+        record.weight == null || !Number.isFinite(weight) || weight <= 0) continue;
+    streak = weight <= userSettings.goal_weight ? streak + 1 : 0;
+    if (streak === requiredCount) return record;
+  }
+  return null;
+}
+
+function isActualStreakAchievement(achievement) {
+  if (achievement.achievement_type !== "actual") return false;
+  try {
+    const key = JSON.parse(achievement.goal_key);
+    return Array.isArray(key) && key[key.length - 1] === "streak7";
+  } catch {
+    return false;
+  }
+}
+
+// 初到達・7記録連続到達を別の履歴として保存する。
 function currentGoalAchievement(type = "theoretical") {
   if (!userSettings?.baseline_date || userSettings?.goal_weight == null || userSettings?.baseline_weight == null ||
       userSettings.goal_weight >= userSettings.baseline_weight) return null;
@@ -340,10 +371,9 @@ function currentGoalAchievement(type = "theoretical") {
   const endDate = lastCompletedDateStr();
   let achievedDate;
   let achievedWeight;
-  if (type === "actual") {
-    const record = weightRecordsAsc.find((record) => record.date >= userSettings.baseline_date &&
-      record.date <= endDate && record.weight != null && Number(record.weight) > 0 &&
-      Number(record.weight) <= userSettings.goal_weight);
+  const isActual = type === "actual" || type === "actual_streak";
+  if (isActual) {
+    const record = firstActualGoalRecord(type === "actual_streak" ? 7 : 1);
     achievedDate = record?.date;
     achievedWeight = record?.weight;
   } else {
@@ -356,7 +386,8 @@ function currentGoalAchievement(type = "theoretical") {
   const { baseline_date, baseline_weight, goal_weight, goal_date } = userSettings;
   // 理論体重のキーは従来と同じにし、保存済みの履歴を重複させない。
   const key = [baseline_date, Number(baseline_weight), Number(goal_weight), goal_date || null];
-  if (type === "actual") key.push("actual");
+  if (isActual) key.push("actual");
+  if (type === "actual_streak") key.push("streak7");
   return {
     goal_key: JSON.stringify(key),
     baseline_date,
@@ -364,14 +395,15 @@ function currentGoalAchievement(type = "theoretical") {
     goal_weight,
     goal_date: goal_date || null,
     achieved_date: achievedDate,
-    ...(type === "actual"
+    ...(isActual
       ? { achievement_type: "actual", actual_weight: Number(achievedWeight), theoretical_weight: null }
       : { theoretical_weight: achievedWeight }),
   };
 }
 
 async function syncAchievements() {
-  const achievements = [currentGoalAchievement(), currentGoalAchievement("actual")].filter(Boolean);
+  const achievements = [currentGoalAchievement(), currentGoalAchievement("actual"),
+    currentGoalAchievement("actual_streak")].filter(Boolean);
   achievementMessage.textContent = "読み込み中...";
   achievementList.replaceChildren();
 
@@ -421,10 +453,13 @@ function renderAchievements(achievements) {
     content.className = "record-content";
     const title = document.createElement("strong");
     title.className = "record-date";
-    title.textContent = `${Number(achievement.goal_weight)} kg の目標を達成！`;
+    const isStreak = isActualStreakAchievement(achievement);
+    const isFirstActual = achievement.achievement_type === "actual" && !isStreak;
+    title.textContent = `${Number(achievement.goal_weight)}kgの目標を${isFirstActual ? "初めて" : ""}達成！`;
     const method = document.createElement("span");
     method.className = "record-weight achievement-method";
-    method.textContent = achievement.achievement_type === "actual" ? "実測体重で達成" : "理論体重で達成";
+    method.textContent = achievement.achievement_type === "actual"
+      ? `実測体重で達成${isStreak ? "（7記録連続）" : ""}` : "理論体重で達成";
     const detail = document.createElement("p");
     detail.className = "record-memo achievement-detail";
     detail.textContent = `達成日: ${achievement.achieved_date} · 基準体重: ${Number(achievement.baseline_weight)} kg`;
@@ -455,6 +490,7 @@ function renderSettingsSummary() {
   } else {
     currentBaselineDisplay.textContent = "-";
   }
+  currentGoalDisplay.textContent = userSettings?.goal_weight != null ? `${userSettings.goal_weight} kg` : "-";
 
   const firstDay = firstCalorieDateStr();
   const yesterdayStr = lastCompletedDateStr();
@@ -484,17 +520,17 @@ function renderProgressChart(achievedTotal) {
   if (requiredTotal == null || requiredTotal <= 0 || !Number.isFinite(achievedTotal)) {
     progressLabel.textContent = "-";
     if (progressChart) {
-      progressChart.data.datasets[0].data = [0, 100];
+      progressChart.data.datasets[0].data = [0, 0];
       progressChart.update();
     }
     return;
   }
 
   const percent = (achievedTotal / requiredTotal) * 100;
-  const clamped = Math.max(0, Math.min(100, percent));
   progressLabel.textContent = `${Math.round(percent)}%`;
 
-  const data = [clamped, 100 - clamped];
+  // 円の割合はそのまま、各区分の値を実際のカロリーにする。
+  const data = [Math.max(0, achievedTotal), Math.max(0, requiredTotal - achievedTotal)];
 
   if (progressChart) {
     progressChart.data.datasets[0].data = data;
@@ -504,6 +540,12 @@ function renderProgressChart(achievedTotal) {
 
   progressChart = new Chart(progressChartCanvas, {
     type: "doughnut",
+    plugins: [{
+      id: "progressLabelVisibility",
+      afterDraw(chart) {
+        progressLabel.style.visibility = chart.tooltip?.opacity > 0 ? "hidden" : "visible";
+      },
+    }],
     data: {
       labels: ["達成", "残り"],
       datasets: [
@@ -517,7 +559,15 @@ function renderProgressChart(achievedTotal) {
     options: {
       responsive: true,
       cutout: "70%",
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: () => "",
+            label: (context) => `${context.label}: ${Math.round(context.parsed).toLocaleString("ja-JP")} kcal`,
+          },
+        },
+      },
     },
   });
 }
