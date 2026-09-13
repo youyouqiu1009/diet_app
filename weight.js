@@ -333,28 +333,45 @@ function theoreticalWeightAsOf(dayStr) {
 }
 
 // 日々の揺れで達成が取り消されないよう、最初に到達した日を履歴として保存する。
-function currentGoalAchievement() {
-  if (userSettings?.goal_weight == null || userSettings?.baseline_weight == null ||
+function currentGoalAchievement(type = "theoretical") {
+  if (!userSettings?.baseline_date || userSettings?.goal_weight == null || userSettings?.baseline_weight == null ||
       userSettings.goal_weight >= userSettings.baseline_weight) return null;
 
-  const weights = buildTheoreticalWeightMap(lastCompletedDateStr());
-  const achievedDate = Object.keys(weights).find((day) => weights[day] <= userSettings.goal_weight);
+  const endDate = lastCompletedDateStr();
+  let achievedDate;
+  let achievedWeight;
+  if (type === "actual") {
+    const record = weightRecordsAsc.find((record) => record.date >= userSettings.baseline_date &&
+      record.date <= endDate && record.weight != null && Number(record.weight) > 0 &&
+      Number(record.weight) <= userSettings.goal_weight);
+    achievedDate = record?.date;
+    achievedWeight = record?.weight;
+  } else {
+    const weights = buildTheoreticalWeightMap(endDate);
+    achievedDate = Object.keys(weights).find((day) => weights[day] <= userSettings.goal_weight);
+    achievedWeight = weights[achievedDate];
+  }
   if (!achievedDate) return null;
 
   const { baseline_date, baseline_weight, goal_weight, goal_date } = userSettings;
+  // 理論体重のキーは従来と同じにし、保存済みの履歴を重複させない。
+  const key = [baseline_date, Number(baseline_weight), Number(goal_weight), goal_date || null];
+  if (type === "actual") key.push("actual");
   return {
-    goal_key: JSON.stringify([baseline_date, Number(baseline_weight), Number(goal_weight), goal_date || null]),
+    goal_key: JSON.stringify(key),
     baseline_date,
     baseline_weight,
     goal_weight,
     goal_date: goal_date || null,
     achieved_date: achievedDate,
-    theoretical_weight: weights[achievedDate],
+    ...(type === "actual"
+      ? { achievement_type: "actual", actual_weight: Number(achievedWeight), theoretical_weight: null }
+      : { theoretical_weight: achievedWeight }),
   };
 }
 
 async function syncAchievements() {
-  const achievement = currentGoalAchievement();
+  const achievements = [currentGoalAchievement(), currentGoalAchievement("actual")].filter(Boolean);
   achievementMessage.textContent = "読み込み中...";
   achievementList.replaceChildren();
 
@@ -363,20 +380,24 @@ async function syncAchievements() {
       .select("*").order("achieved_date", { ascending: false });
     if (error) throw error;
 
-    if (achievement && !data.some((item) => item.goal_key === achievement.goal_key)) {
+    let saveFailed = false;
+    for (const achievement of achievements) {
+      if (data.some((item) => item.goal_key === achievement.goal_key)) continue;
       // 重複した読み込みが起きても、同じ目標の達成履歴は1件だけ保存する。
       const result = await sb.from("goal_achievements").upsert(achievement, {
         onConflict: "user_id,goal_key", ignoreDuplicates: true,
       });
       if (result.error) {
-        renderAchievements(data);
-        achievementMessage.textContent = "達成履歴を保存できませんでした。次回の読み込み時に再試行します。";
+        saveFailed = true;
         console.error(result.error);
-        return;
+        continue;
       }
       data.push(achievement);
     }
     renderAchievements(data);
+    if (saveFailed) {
+      achievementMessage.textContent = "達成履歴を保存できませんでした。次回の読み込み時に再試行します。";
+    }
   } catch (error) {
     achievementMessage.textContent = "達成履歴を読み込めませんでした。接続状況と保存先の設定を確認してください。";
     console.error(error);
@@ -385,7 +406,7 @@ async function syncAchievements() {
 
 function renderAchievements(achievements) {
   achievementList.replaceChildren();
-  achievementMessage.textContent = achievements.length ? "" : "目標を達成すると、ここに履歴が残ります。";
+  achievementMessage.textContent = "";
   const sorted = [...achievements].sort((a, b) => b.achieved_date.localeCompare(a.achieved_date));
   for (const achievement of sorted) {
     const item = document.createElement("li");
@@ -397,10 +418,13 @@ function renderAchievements(achievements) {
     const content = document.createElement("div");
     const title = document.createElement("strong");
     title.textContent = `${Number(achievement.goal_weight)} kg の目標を達成！`;
+    const method = document.createElement("span");
+    method.className = "achievement-method";
+    method.textContent = achievement.achievement_type === "actual" ? "実測体重で達成" : "理論体重で達成";
     const detail = document.createElement("p");
     detail.className = "achievement-detail";
     detail.textContent = `達成日: ${achievement.achieved_date} · 基準体重: ${Number(achievement.baseline_weight)} kg`;
-    content.append(title, detail);
+    content.append(title, method, detail);
     if (achievement.goal_date) {
       const deadline = document.createElement("p");
       deadline.className = "achievement-detail";

@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
 <!-- JS/CSSを変更したら、下と末尾のscriptの ?v= の数字をすべて+1してからpushする -->
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -82,7 +82,6 @@
       <section class="card">
         <h2><span id="calorie-list-date-label">今日</span>の合計: <span id="calorie-today-total">0</span> kcal</h2>
         <p>目標達成ライン: <strong id="goal-hint">-</strong></p>
-        <p class="hint">目標達成ラインは、昨日までの記録を反映した理論体重をもとに計算しています。</p>
         <p>現状維持ライン: <strong id="maintain-hint">-</strong></p>
         <ul id="calorie-today-list" class="record-list"></ul>
         <button type="button" id="calorie-history-btn" class="small-btn">過去の記録をすべて見る</button>
@@ -195,9 +194,12 @@
 
       <section class="card">
         <h2>アチーブメント</h2>
-        <p class="hint">理論体重で達成した目標の履歴です。</p>
-        <p id="achievement-message" class="hint" role="status">目標を達成すると、ここに履歴が残ります。</p>
+        <p id="achievement-message" class="hint" role="status"></p>
         <ul id="achievement-list" class="achievement-list"></ul>
+        <div class="achievement-item">
+          <span class="achievement-icon" aria-hidden="true">🌱</span>
+          <div><strong>はじめの一歩</strong></div>
+        </div>
       </section>
 
     </div>
@@ -218,8 +220,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="app.js?v=7"></script>
-<script src="calorie.js?v=7"></script>
-<script src="weight.js?v=7"></script>
+<script src="app.js?v=8"></script>
+<script src="calorie.js?v=8"></script>
+<script src="weight.js?v=8"></script>
 </body>
 </html>

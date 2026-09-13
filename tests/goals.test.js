@@ -177,6 +177,48 @@ async function runGoalTests(weightSource, calorieSource) {
   await api.syncAchievements();
   assert(elements["achievement-message"].textContent.includes("読み込めません"), "Report load failure");
   results.push("Storage failures and retry");
+
+  readError = false;
+  saved.length = 0;
+  insertCount = 0;
+  const reachedActualWeights = [
+    { date: dayOffset(-2), weight: 67 },
+    { date: yesterday, weight: 68 },
+    { date: today, weight: 67.5 },
+  ];
+  api.set({ ...settings, height_cm: null }, reachedActualWeights, {});
+  const actualAward = api.currentGoalAchievement("actual");
+  assert(actualAward.achievement_type === "actual" && actualAward.actual_weight === 68, "Actual award stores measured weight and method");
+  assert(actualAward.theoretical_weight === null, "Actual weight must not be stored as a theoretical weight");
+  assert(actualAward.achieved_date === yesterday, "Actual award ignores measurements before baseline");
+  assert(api.currentGoalAchievement() === null, "Actual-only award does not require theoretical profile");
+  await api.syncAchievements();
+  assert(saved.length === 1 && saved[0].achievement_type === "actual", "Actual-only achievement persists");
+  let methodLabel = elements["achievement-list"].children[0].children[1].children[1];
+  assert(methodLabel.textContent === "実測体重で達成", "Actual method is visible on card");
+
+  api.set(settings, reachedActualWeights, {});
+  const reachedTdee = api.tdeeForDay(yesterday);
+  api.set(settings, reachedActualWeights, { [yesterday]: reachedTdee - 14400 });
+  await api.syncAchievements();
+  await api.syncAchievements();
+  assert(saved.length === 2 && insertCount === 2, "Same goal can earn both methods exactly once");
+  const theoreticalAward = saved.find((row) => row.achievement_type !== "actual");
+  assert(theoreticalAward.goal_key !== actualAward.goal_key, "Methods use distinct keys");
+  const labels = elements["achievement-list"].children.map((item) => item.children[1].children[1].textContent);
+  assert(labels.includes("実測体重で達成") && labels.includes("理論体重で達成"), "Legacy theoretical award and actual award have explicit labels");
+  api.set({ ...settings, goal_weight: 65 }, [], {});
+  await api.syncAchievements();
+  assert(saved.length === 2 && elements["achievement-list"].children.length === 2, "Both methods remain after goal change and record deletion");
+  results.push("Actual and theoretical awards persist separately with visible method labels and legacy compatibility");
+
+  api.set(settings, [{ date: today, weight: 67 }, { date: dayOffset(1), weight: 66 }], {});
+  assert(api.currentGoalAchievement("actual") === null, "Actual awards also exclude today and future dates");
+  api.set(settings, [{ date: yesterday, weight: null }, { date: yesterday, weight: 0 }], {});
+  assert(api.currentGoalAchievement("actual") === null, "Missing or invalid measured weights must not award");
+  api.set(settings, [{ date: yesterday, weight: 68.01 }], {});
+  assert(api.currentGoalAchievement("actual") === null, "Actual award must use unrounded measurement");
+  results.push("Actual award respects completed-day cutoff and valid unrounded measurements");
   return results;
 }
 
